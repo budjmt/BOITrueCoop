@@ -509,12 +509,14 @@ local function RemoveAllItems(player)
         end
     end
 
-    for i = 0, 1 do
-        local trinket = player:GetTrinket(i)
+    local trinkets = { player:GetTrinket(0), player:GetTrinket(1) }
+    player:AddCollectible(CollectibleType.COLLECTIBLE_MOMS_PURSE, 0, false)
+    for _, trinket in ipairs(trinkets) do
         if trinket and trinket > 0 then
             player:TryRemoveTrinket(trinket)
         end
     end
+    player:RemoveCollectible(CollectibleType.COLLECTIBLE_MOMS_PURSE)
 
     local active = player:GetActiveItem()
     if active > 0 then
