@@ -1,0 +1,6 @@
+*.it
+*.dat
+.vscode/taskmarks.json
+ignore_*
+*_ignore
+.vscode/settings.json

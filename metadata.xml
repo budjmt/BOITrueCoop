@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>True Co-op</name>
+    <directory>truecoop</directory>
+    <id>1230784774</id>
+    <description>[h1]THIS IS LOCAL CO-OP, NOT ONLINE[/h1]
+
+Co-op babies begone! Now you and your friends can play as your own individual characters as True Co-op comes to Afterbirth+!
+
+With up to four players, select your own individual characters, and have fun! You can pick up your own items, trinkets, cards, and pills, instead of having to share with player one!
+
+Configure a number of different factors of gameplay, including enemy HP scaling per-character, player ghosts, and more!
+
+A fun new challenge is available! Play with multiple characters at once-- at the same time! Painful, chaotic fun! I mean...long live the hive-mind!
+
+[b] [h1] CREDITS [/h1] [/b]
+Meowlala- Lead Dev, Programming
+S-body- Art, Animation
+OrigamiDragon- Art, Animation
+Electoon- Art / Animation assistance, trailer, screenshots, testing
+Deadskull- Testing
+Ballisticannon- Testing
+Chrome- Testing
+Bustin a Bloch- Testing
+EnderSlique- Testing
+
+Special thanks to the Binding of Isaac discord community for support and testing, and to other members of Team Alpha who assisted in the discovery of game functionality that made this possible.
+
+[b] [h1] Q / A [/h1] [/b]
+[h1] I remember in Antibirth, the game was bugged so you couldn’t resume with a co-op character! Does this mod done by a completely different development group somehow have the same issue? [/h1]
+Nope. So long as the mod is enabled, all of the data for the additional co-op character will be saved-- just be sure to join in the proper order. If you don’t, just exit out and try again or swap controllers.
+
+[h1] My friend is a ghost!! What do I do? [/h1]
+Find a devil or angel room-- you can resurrect them from there.
+
+[h1] Mod characters!! I want mod characters!! [/h1]
+We offer the tools needed for proper mod character implementation, but it’ll have to be done on the side of character creators-- if you want your favorite modded character compatible, ask the creator if they can do compatibility.
+
+[h1] This is confusing! Who is who? [/h1]
+If you’d like to see who’s who, hold down [TAB] to give off a colored tint on each player. If you want this tint on all the time, plus specially colored text indicators, there is an option to change it in the config.
+
+[h1] Screw being a ghost! When my partner dies, I want everyone to feel it! [/h1]
+No problem-- we have a few other options for death in the config: the run ends when someone dies, a player dies and respawns as a ghost unable to be resurrected, dies and spawns as a ghost with the ability to resurrect in sacrifice rooms, or dies and spawns as a ghost with the ability to ressurect in devil or angel rooms (on by default).
+
+[h1] You keep talking about this config, what’s that all about? [/h1]
+We actually made a challenge that allows you to customize how True Co-Op works, allowing you to change such options as the HUD, how players are resurrected, and more. Press R to exit the challenge.
+
+[h1] Something something ONLINE CO-OP [/h1]
+No. Online Co-op is not feasible with a mod using solely the Afterbirth+ lua API.
+
+[h1] Your mod breaks my mod! How can I fix this? [/h1]
+Directly below the Config table in main.lua is a blob of useful information for ensuring compatibility with True Co-Op! Feel free to ask questions to DeadInfinity on the Binding of Isaac Discord if you need clarification.</description>
+    <version>21.0</version>
+    <visibility>Public</visibility>
+    <tag id="Lua"/>
+    <tag id="Player Characters"/>
+    <tag id="Babies"/>
+    <tag id="Challenges"/>
+    <tag id="Tweaks"/>
+    <tag id="Removals"/>
+</metadata>

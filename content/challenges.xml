@@ -1,0 +1,4 @@
+<challenges version="1">
+    <challenge name = "Quadriplegic" playertype = "0" endstage = "11" altpath="true" roomfilter="4" />
+    <challenge name = "True Co-op Config" playertype = "0" endstage = "11" altpath="true" roomfilter="4" />
+</challenges>

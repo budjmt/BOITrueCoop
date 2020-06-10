@@ -1,0 +1,19 @@
+<costumes anm2root = "gfx/truecoop/costumes/">
+    <costume anm2path="ghost/ghost_apollyon.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_azazel.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_bluebaby.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_cain.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_eden.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_eve.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_judas.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_judasshadow.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_keeper.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_lazarus.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_lilith.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_magdalene.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_samson.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_theforgotten.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost_thesoul.anm2" priority="999" type="none" isFlying = "true" />
+    <costume anm2path="ghost/ghost.anm2" priority="998" type="none" isFlying = "true" />
+    <costume anm2path="charselect/charselect.anm2" priority="999" type="none" />
+</costumes>
