@@ -256,14 +256,27 @@ local zeroVector = Vector(0, 0)
 local players = {}
 local sfxManager = SFXManager()
 
-if Isaac.GetPlayer(0) then
-    local numPlayers = game:GetNumPlayers()
-    if numPlayers > 0 then
-        for i = 1, numPlayers do
-            players[i] = Isaac.GetPlayer(i - 1)
+local function RefreshPlayers()
+    players = {}
+    for i = 1, game:GetNumPlayers() do
+        players[i] = Isaac.GetPlayer(i - 1)
+        local data = players[i]:GetData()
+
+        if not data.TrueCoop then
+            data.TrueCoop = {
+                Save = {},
+                ExtraFamiliars = {},
+                ExtraFamiliarsBuffer = {},
+                ExtraExtraFamiliars = {},
+            }
         end
+
+        data.TrueCoop.PlayerListIndex = i
+        data.TrueCoop.ShouldEvaluate = true
     end
 end
+
+RefreshPlayers()
 
 local function playSound(sound)
     sfxManager:Play(sound, 1, 0, false, 1)
@@ -570,30 +583,18 @@ local function LoadModData()
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_PLAYER_INIT, function(_, p)
+    RefreshPlayers()
+
     if p.Variant > 0 then
         p.Variant = 0
         p:GetSprite():Load("gfx/001.000_player.anm2", true)
-        local data = p:GetData()
-        data.TrueCoop = {Save = {}}
-        data.TrueCoop.CoopPlayer = true
-        data.TrueCoop.JustSpawned = true
+        local data = p:GetData().TrueCoop
+        data.CoopPlayer = true
+        data.JustSpawned = true
         p:AddCoins(players[1]:GetNumCoins())
         p:AddKeys(players[1]:GetNumKeys())
         p:AddBombs(players[1]:GetNumBombs())
         p.GridCollisionClass = EntityGridCollisionClass.GRIDCOLL_GROUND
-    end
-
-    players = {}
-    for i = 1, game:GetNumPlayers() do
-        players[i] = Isaac.GetPlayer(i - 1)
-        local data = players[i]:GetData()
-
-        if not data.TrueCoop then
-            data.TrueCoop = {Save = {}}
-        end
-
-        data.TrueCoop.PlayerListIndex = i
-        data.TrueCoop.ShouldEvaluate = true
     end
 end)
 
@@ -1066,11 +1067,6 @@ end
 
 deliriumSprites = nDeliriumSprites
 
-local FamiliarCacheEvaluatedFor = {}
-local ExtraFamiliars = {}
-local ExtraFamiliarsBuffer = {}
-local ExtraExtraFamiliars = {}
-
 mod:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, function(_, ent, amount)
     local data = ent:GetData()
     if ent:ToPlayer() then
@@ -1093,30 +1089,27 @@ mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, function()
     end
 end)
 
-local function AddFamiliar(expectedFamiliars, variant, pind, count, accountForBoxOfFriends, lilDelirium, positions, overrideExistingVariant)
+local function AddFamiliar(expectedFamiliars, variant, player, count, accountForBoxOfFriends, lilDelirium, positions, overrideExistingVariant)
+    -- expectedFamiliars is assumed to be scoped to player [pind]
     if not expectedFamiliars[variant] or overrideExistingVariant then
-        expectedFamiliars[variant] = {}
-    end
-
-    if not expectedFamiliars[variant][pind] then
-        expectedFamiliars[variant][pind] = {Count = 0, Found = 0, Delirium = 0, Positions = {}}
+        expectedFamiliars[variant] = {Count = 0, Found = 0, Delirium = 0, Positions = {}}
     end
 
     if accountForBoxOfFriends then
-        count = count * (players[pind]:GetEffects():GetCollectibleEffectNum(CollectibleType.COLLECTIBLE_BOX_OF_FRIENDS) + 1)
+        count = count * (player:GetEffects():GetCollectibleEffectNum(CollectibleType.COLLECTIBLE_BOX_OF_FRIENDS) + 1)
     end
 
     if lilDelirium then
-        expectedFamiliars[variant][pind].Delirium = expectedFamiliars[variant][pind].Delirium + count
+        expectedFamiliars[variant].Delirium = expectedFamiliars[variant].Delirium + count
     end
 
     if positions then
         for _, position in ipairs(positions) do
-            expectedFamiliars[variant][pind].Positions[#expectedFamiliars[variant][pind].Positions + 1] = position
+            expectedFamiliars[variant].Positions[#expectedFamiliars[variant].Positions + 1] = position
         end
     end
 
-    expectedFamiliars[variant][pind].Count = expectedFamiliars[variant][pind].Count + count
+    expectedFamiliars[variant].Count = expectedFamiliars[variant].Count + count
     return expectedFamiliars
 end
 
@@ -1234,9 +1227,8 @@ end)
 
 local function ExtraFamiliarChecks(expectedFamiliars)
     for pind, player in ipairs(players) do
-        local data = player:GetData()
         for _, variant in ipairs(ExtraFamiliarVariants) do
-            expectedFamiliars = AddFamiliar(expectedFamiliars, variant, pind, 0)
+            expectedFamiliars = AddFamiliar(expectedFamiliars, variant, player, 0)
         end
 
         local spiderBabyCount = 0
@@ -1244,60 +1236,63 @@ local function ExtraFamiliarChecks(expectedFamiliars)
             spiderBabyCount = 1
         end
 
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.SPIDER_BABY, pind, spiderBabyCount, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.SPIDER_BABY, player, spiderBabyCount, true)
 
         local deadBirdCount = 0
         if player:GetData().TrueCoop.TakenDamageInRoom then
             deadBirdCount = player:GetCollectibleNum(CollectibleType.COLLECTIBLE_DEAD_BIRD)
         end
 
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.DEAD_BIRD, pind, deadBirdCount, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.DEAD_BIRD, player, deadBirdCount, true)
 
         local isaacHeadCount = 0
         if player:HasTrinket(TrinketType.TRINKET_ISAACS_HEAD) then
             isaacHeadCount = 1
         end
 
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.ISAACS_HEAD, pind, isaacHeadCount, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.ISAACS_HEAD, player, isaacHeadCount, true)
 
         local soulCount = 0
         if player:HasTrinket(TrinketType.TRINKET_SOUL) then
             soulCount = 1
         end
 
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.BLUE_BABY_SOUL, pind, soulCount, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.BLUE_BABY_SOUL, player, soulCount, true)
 
         local birdFootBirds = 0
         if player:GetData().TrueCoop.EvesBirdFootBirds then
             birdFootBirds = player:GetData().TrueCoop.EvesBirdFootBirds
         end
 
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.EVES_BIRD_FOOT, pind, birdFootBirds, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.EVES_BIRD_FOOT, player, birdFootBirds, true)
 
         local bodyCount = player:GetEffects():GetCollectibleEffectNum(CollectibleType.COLLECTIBLE_PINKING_SHEARS)
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.ISAACS_BODY, pind, bodyCount, true)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.ISAACS_BODY, player, bodyCount, true)
 
         local incubusCount = player:GetCollectibleNum(CollectibleType.COLLECTIBLE_INCUBUS) + player:GetEffects():GetCollectibleEffectNum(CollectibleType.COLLECTIBLE_INCUBUS)
-        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.INCUBUS, pind, incubusCount)
+        expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.INCUBUS, player, incubusCount)
 
-        local darkBum, bumFriend, keyBum = expectedFamiliars[FamiliarVariant.DARK_BUM][pind], expectedFamiliars[FamiliarVariant.BUM_FRIEND][pind], expectedFamiliars[FamiliarVariant.KEY_BUM][pind]
+        local darkBum, bumFriend, keyBum = expectedFamiliars[FamiliarVariant.DARK_BUM],
+                                           expectedFamiliars[FamiliarVariant.BUM_FRIEND],
+                                           expectedFamiliars[FamiliarVariant.KEY_BUM]
         local min = math.min(darkBum.Count, bumFriend.Count, keyBum.Count)
         if min > 0 then
             for i = 1, min do
                 darkBum.Count = darkBum.Count - 1
                 bumFriend.Count = bumFriend.Count - 1
                 keyBum.Count = keyBum.Count - 1
-                expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.SUPER_BUM, pind, 1, true)
+                expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.SUPER_BUM, player, 1, true)
             end
         end
 
-        local keyPieceOne, keyPieceTwo = expectedFamiliars[FamiliarVariant.KEY_PIECE_1][pind], expectedFamiliars[FamiliarVariant.KEY_PIECE_2][pind]
+        local keyPieceOne, keyPieceTwo = expectedFamiliars[FamiliarVariant.KEY_PIECE_1],
+                                         expectedFamiliars[FamiliarVariant.KEY_PIECE_2]
         local min = math.min(keyPieceOne.Count, keyPieceTwo.Count)
         if min > 0 then
             for i = 1, min do
                 keyPieceOne.Count = keyPieceOne.Count - 1
                 keyPieceTwo.Count = keyPieceTwo.Count - 1
-                expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.KEY_FULL, pind, 1, true)
+                expectedFamiliars = AddFamiliar(expectedFamiliars, FamiliarVariant.KEY_FULL, player, 1, true)
             end
         end
     end
@@ -1307,7 +1302,8 @@ end
 
 mod:AddCallback(ModCallbacks.MC_EVALUATE_CACHE, function(_, p, f)
     if f == CacheFlag.CACHE_FAMILIARS then
-        FamiliarCacheEvaluatedFor[#FamiliarCacheEvaluatedFor + 1] = p:GetData().TrueCoop.PlayerListIndex
+        local data = p:GetData().TrueCoop
+        data.FamiliarCacheEvaluated = true
     end
 end)
 
@@ -1315,160 +1311,143 @@ mod:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, function(_, fam)
     fam:GetData().TrueCoopIgnore = true
 end, FamiliarVariant.BONE_ORBITAL)
 
-mod:AddCallback(ModCallbacks.MC_POST_UPDATE, function()
-    if #FamiliarCacheEvaluatedFor > 0 then
-        for variant, pinds in pairs(ExtraFamiliars) do
-            for _, pind in ipairs(FamiliarCacheEvaluatedFor) do
-                pinds[pind] = nil
-            end
+mod:AddCallback(ModCallbacks.MC_POST_PLAYER_UPDATE, function(_, player)
+    local data = player:GetData().TrueCoop
+    if data.FamiliarCacheEvaluated then
+        for variant, famData in pairs(data.ExtraFamiliarsBuffer) do
+            data.ExtraFamiliars[variant] = famData
         end
 
-        for variant, pinds in pairs(ExtraFamiliarsBuffer) do
-            if not ExtraFamiliars[variant] then
-                ExtraFamiliars[variant] = pinds
-            else
-                for pind, famData in pairs(pinds) do
-                    ExtraFamiliars[variant][pind] = famData
-                end
-            end
-        end
-
-        ExtraFamiliarsBuffer = {}
-        FamiliarCacheEvaluatedFor = {}
+        data.ExtraFamiliarsBuffer = {}
+        data.FamiliarCacheEvaluated = nil
     end
 
-    local ExpectingPerPlayer = {}
+    local ExpectedFamiliars = {}
     for item, familiar in pairs(ItemFamiliarMap) do
-        for pind, player in ipairs(players) do
-            local itemCount = player:GetCollectibleNum(item) + player:GetEffects():GetCollectibleEffectNum(item)
+        local itemCount = player:GetCollectibleNum(item) + player:GetEffects():GetCollectibleEffectNum(item)
 
-            if familiar.Variant == FamiliarVariant.DEAD_CAT then
-                itemCount = math.ceil(itemCount / 9)
+        if familiar.Variant == FamiliarVariant.DEAD_CAT then
+            itemCount = math.ceil(itemCount / 9)
+        end
+
+        local count = itemCount * familiar.Count
+        if type(familiar.Variant) ~= "string" then
+            ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, familiar.Variant, player, count)
+        elseif familiar.Variant == "MeatCube" then
+            for i, variant in ipairs(meatPhases) do
+                local ccount = 0
+                if variant == FamiliarVariant.CUBE_OF_MEAT_4 then
+                    ccount = math.floor(count / 4)
+                else
+                    if count % 4 == i then
+                        ccount = 1
+                    end
+                end
+
+                ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, variant, player, ccount)
             end
-
-            local count = itemCount * familiar.Count
-            if type(familiar.Variant) ~= "string" then
-                ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, familiar.Variant, pind, count)
-            elseif familiar.Variant == "MeatCube" then
-                for i, variant in ipairs(meatPhases) do
-                    local ccount = 0
-                    if variant == FamiliarVariant.CUBE_OF_MEAT_4 then
-                        ccount = math.floor(count / 4)
-                    else
-                        if count % 4 == i then
-                            ccount = 1
-                        end
+        elseif familiar.Variant == "BandageBall" then
+            for i, variant in ipairs(bandagePhases) do
+                local ccount = 0
+                if variant == FamiliarVariant.BALL_OF_BANDAGES_4 then
+                    ccount = math.floor(count / 4)
+                else
+                    if count % 4 == i then
+                        ccount = 1
                     end
-
-                    ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, variant, pind, ccount)
                 end
-            elseif familiar.Variant == "BandageBall" then
-                for i, variant in ipairs(bandagePhases) do
-                    local ccount = 0
-                    if variant == FamiliarVariant.BALL_OF_BANDAGES_4 then
-                        ccount = math.floor(count / 4)
-                    else
-                        if count % 4 == i then
-                            ccount = 1
-                        end
+
+                ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, variant, player, ccount)
+            end
+        elseif familiar.Variant == "LilDelirium" then
+            data.DeliriumFamiliars = data.DeliriumFamiliars or {}
+            data.DeliriumCooldowns = data.DeliriumCooldowns or {}
+
+            if count > 0 then
+                for i = 1, count do
+                    data.DeliriumCooldowns[i] = data.DeliriumCooldowns[i] or 0
+                    if not data.DeliriumFamiliars[i] or data.DeliriumCooldowns[i] <= 0 then
+                        data.DeliriumFamiliars[i] = deliriumFamiliars[random(1, #deliriumFamiliars)]
+                        data.DeliriumCooldowns[i] = 300
                     end
 
-                    ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, variant, pind, ccount)
-                end
-            elseif familiar.Variant == "LilDelirium" then
-                local data = player:GetData()
-                data.TrueCoop.DeliriumFamiliars = data.TrueCoop.DeliriumFamiliars or {}
-                data.TrueCoop.DeliriumCooldowns = data.TrueCoop.DeliriumCooldowns or {}
-
-                if count > 0 then
-                    for i = 1, count do
-                        data.TrueCoop.DeliriumCooldowns[i] = data.TrueCoop.DeliriumCooldowns[i] or 0
-                        if not data.TrueCoop.DeliriumFamiliars[i] or data.TrueCoop.DeliriumCooldowns[i] <= 0 then
-                            data.TrueCoop.DeliriumFamiliars[i] = deliriumFamiliars[random(1, #deliriumFamiliars)]
-                            data.TrueCoop.DeliriumCooldowns[i] = 300
-                        end
-
-                        data.TrueCoop.DeliriumCooldowns[i] = data.TrueCoop.DeliriumCooldowns[i] - 1
-                        ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, data.TrueCoop.DeliriumFamiliars[i], pind, 1, true, true)
-                    end
+                    data.DeliriumCooldowns[i] = data.DeliriumCooldowns[i] - 1
+                    ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, data.DeliriumFamiliars[i], player, 1, true, true)
                 end
             end
         end
     end
 
-    ExpectingPerPlayer = ExtraFamiliarChecks(ExpectingPerPlayer)
+    ExpectedFamiliars = ExtraFamiliarChecks(ExpectedFamiliars)
 
-    for variant, playersData in pairs(ExtraFamiliars) do
-        for pind, familiarData in pairs(playersData) do
-            ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, variant, pind, familiarData.Count)
+    for variant, familiarData in pairs(data.ExtraFamiliars) do
+        ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, variant, player, familiarData.Count)
+    end
+
+    for name, familiarsData in pairs(data.ExtraExtraFamiliars) do
+        for variant, familiarData in pairs(familiarsData) do
+            ExpectedFamiliars = AddFamiliar(ExpectedFamiliars, variant, player, familiarData.Count, false, false, familiarData.Positions)
         end
     end
 
-    for name, familiarsData in pairs(ExtraExtraFamiliars) do
-        for variant, playersData in pairs(familiarsData) do
-            for pind, familiarData in pairs(playersData) do
-                ExpectingPerPlayer = AddFamiliar(ExpectingPerPlayer, variant, pind, familiarData.Count, false, false, familiarData.Positions)
-            end
+    for variant, familiarData in pairs(ExpectedFamiliars) do
+        if data.Save.IsGhost then
+            familiarData.Count = 0
         end
-    end
 
-    for variant, playersData in pairs(ExpectingPerPlayer) do
-        for pind, familiarData in pairs(playersData) do
-            if players[pind]:GetData().TrueCoop.Save.IsGhost then
-                familiarData.Count = 0
-            end
-
-            local familiars = Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)
-            for _, fam in ipairs(familiars) do
-                local data = fam:GetData()
-                if data.TrueCoopPlayerListIndex == pind and not data.TrueCoopIgnore then
+        local familiars = Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)
+        for _, fam in ipairs(familiars) do
+            local fdata = fam:GetData()
+            if not fdata.TrueCoopIgnore then
+                if fdata.TrueCoopPlayerListIndex == data.PlayerListIndex then
                     familiarData.Found = familiarData.Found + 1
-                elseif not data.TrueCoopPlayerListIndex and not data.TrueCoopIgnore then
+                elseif not fdata.TrueCoopPlayerListIndex then
                     fam:Remove()
                 end
             end
+        end
 
-            if familiarData.Found < familiarData.Count then -- Spawn more familiars
-                local numToSpawn = familiarData.Count - familiarData.Found
-                for i = 1, numToSpawn do
-                    local fam = Isaac.Spawn(EntityType.ENTITY_FAMILIAR, variant, 0, players[pind].Position, zeroVector, players[pind]):ToFamiliar()
-                    fam:GetData().TrueCoopPlayerListIndex = pind
-                    fam.Player = players[pind]
+        if familiarData.Found < familiarData.Count then -- Spawn more familiars
+            local numToSpawn = familiarData.Count - familiarData.Found
+            for i = 1, numToSpawn do
+                local fam = Isaac.Spawn(EntityType.ENTITY_FAMILIAR, variant, 0, player.Position, zeroVector, player):ToFamiliar()
+                fam:GetData().TrueCoopPlayerListIndex = data.PlayerListIndex
+                fam.Player = player
 
-                    if variant == FamiliarVariant.BUMBO and players[pind]:GetData().TrueCoop.Save.BumboCoins then
-                        fam:AddCoins(players[pind]:GetData().TrueCoop.Save.BumboCoins)
+                if variant == FamiliarVariant.BUMBO and data.Save.BumboCoins then
+                    fam:AddCoins(data.Save.BumboCoins)
+                end
+
+                if i <= familiarData.Delirium then
+                    local spritesheet = deliriumSprites[variant]
+                    local sprite = fam:GetSprite()
+
+                    for layer, file in ipairs(spritesheet) do
+                        sprite:ReplaceSpritesheet(layer - 1, file)
                     end
 
-                    if i <= familiarData.Delirium then
-                        local spritesheet = deliriumSprites[variant]
-                        local sprite = fam:GetSprite()
+                    sprite:LoadGraphics()
+                end
 
-                        for layer, file in ipairs(spritesheet) do
-                            sprite:ReplaceSpritesheet(layer - 1, file)
-                        end
-
-                        sprite:LoadGraphics()
-                    end
-
-                    if i <= (#familiarData.Positions - familiarData.Found) then
-                        if familiarData.Positions[i - familiarData.Found] then
-                            fam.Position = familiarData.Positions[i - familiarData.Found]
-                        end
+                if i <= (#familiarData.Positions - familiarData.Found) then
+                    if familiarData.Positions[i - familiarData.Found] then
+                        fam.Position = familiarData.Positions[i - familiarData.Found]
                     end
                 end
-            elseif familiarData.Found > familiarData.Count then -- Remove familiars
-                local numToRemove = familiarData.Found - familiarData.Count
-                local numRemoved = 0
-                local familiars = Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)
-                for _, fam in ipairs(familiars) do
-                    if fam:GetData().TrueCoopPlayerListIndex == pind and not fam:GetData().TrueCoopIgnore then
-                        fam:Remove()
-                        numRemoved = numRemoved + 1
-                    end
+            end
+        elseif familiarData.Found > familiarData.Count then -- Remove familiars
+            local numToRemove = familiarData.Found - familiarData.Count
+            local numRemoved = 0
+            local familiars = Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)
+            for _, fam in ipairs(familiars) do
+                local fdata = fam:GetData()
+                if not fdata.TrueCoopIgnore and fdata.TrueCoopPlayerListIndex == data.PlayerListIndex then
+                    fam:Remove()
+                    numRemoved = numRemoved + 1
+                end
 
-                    if numRemoved >= numToRemove then
-                        break
-                    end
+                if numRemoved >= numToRemove then
+                    break
                 end
             end
         end
@@ -1478,7 +1457,8 @@ end)
 if not previouslyLoaded then
     require("apioverride")
     APIOverride.OverrideClassFunction(EntityPlayer, "CheckFamiliar", function(self, variant, count, rng, calcBoxOfFriends)
-        ExtraFamiliarsBuffer = AddFamiliar(ExtraFamiliarsBuffer, variant, self:GetData().TrueCoop.PlayerListIndex, count, calcBoxOfFriends, nil, nil, true)
+        local data = self:GetData().TrueCoop
+        data.ExtraFamiliarsBuffer = AddFamiliar(data.ExtraFamiliarsBuffer, variant, self, count, calcBoxOfFriends, nil, nil, true)
     end)
 
     local oldGetPlayerType = APIOverride.GetCurrentClassFunction(EntityPlayer, "GetPlayerType")
@@ -3917,18 +3897,22 @@ function InfinityTrueCoopInterface.AddCharacterToWheel(name)
     PlayerSelectOrder[#PlayerSelectOrder + 1] = name
 end
 
-function InfinityTrueCoopInterface.SetExpectedFamiliar(name, variant, pind, count, accountForBoxOfFriends, lilDelirium, positions)
-    ExtraExtraFamiliars[name] = {}
-
-    if type(pind) ~= "number" then
-        pind = pind:GetData().TrueCoop.PlayerListIndex
+function InfinityTrueCoopInterface.SetExpectedFamiliar(name, variant, player, count, accountForBoxOfFriends, lilDelirium, positions)
+    local pind
+    if type(player) == "number" then
+        pind = player
+        player = players[pind]
+    else
+        pind = player:GetData().TrueCoop.PlayerListIndex
     end
 
-    ExtraExtraFamiliars[name] = AddFamiliar(ExtraExtraFamiliars[name], variant, pind, count, accountForBoxOfFriends, lilDelirium, positions)
+    local data = player:GetData().TrueCoop
+    data.ExtraExtraFamiliars[name] = {}
+    data.ExtraExtraFamiliars[name] = AddFamiliar(data.ExtraExtraFamiliars[name], variant, pind, count, accountForBoxOfFriends, lilDelirium, positions)
 end
 
 function InfinityTrueCoopInterface.SetFamiliarPlayer(familiar, player)
-    familiar:GetData().TrueCoopPlayerListIndex = player:GetData().TrueCoopPlayerListIndex
+    familiar:GetData().TrueCoopPlayerListIndex = player:GetData().TrueCoop.PlayerListIndex
 end
 
 function InfinityTrueCoopInterface.AddModdedCardFront(card, anm2, anim)
@@ -4178,6 +4162,8 @@ mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function(_, shouldSave)
 end)
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continued)
+    RefreshPlayers()
+
     players[1]:GetData().TrueCoop.JustSpawned = true
     LoadModData()
     if not continued then
