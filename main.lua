@@ -288,7 +288,8 @@ end
 
 local function GetScreenCenterPosition()
     local room = game:GetRoom()
-    local centerOffset = (room:GetCenterPos()) - room:GetTopLeftPos()
+    local roomCenter = room:GetCenterPos()
+    local centerOffset = roomCenter - room:GetTopLeftPos()
     local pos = room:GetCenterPos()
     if centerOffset.X > 260 then
       pos.X = pos.X - 260
@@ -296,7 +297,7 @@ local function GetScreenCenterPosition()
     if centerOffset.Y > 140 then
         pos.Y = pos.Y - 140
     end
-    return Isaac.WorldToRenderPosition(pos, false)
+    return Isaac.WorldToRenderPosition(pos, false), roomCenter, room
 end
 
 local function GetBottomRightNoOffset()
@@ -420,7 +421,7 @@ local function PopulateConfigLists()
         collectible = iconfig:GetCollectible(counter)
     end
 
-    local counter = 1
+    counter = 1
     local trinket = iconfig:GetTrinket(counter)
     while trinket or (counter < 126) do
         if trinket then
@@ -1287,7 +1288,7 @@ local function ExtraFamiliarChecks(expectedFamiliars)
 
         local keyPieceOne, keyPieceTwo = expectedFamiliars[FamiliarVariant.KEY_PIECE_1],
                                          expectedFamiliars[FamiliarVariant.KEY_PIECE_2]
-        local min = math.min(keyPieceOne.Count, keyPieceTwo.Count)
+        min = math.min(keyPieceOne.Count, keyPieceTwo.Count)
         if min > 0 then
             for i = 1, min do
                 keyPieceOne.Count = keyPieceOne.Count - 1
@@ -1438,8 +1439,7 @@ mod:AddCallback(ModCallbacks.MC_POST_PLAYER_UPDATE, function(_, player)
         elseif familiarData.Found > familiarData.Count then -- Remove familiars
             local numToRemove = familiarData.Found - familiarData.Count
             local numRemoved = 0
-            local familiars = Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)
-            for _, fam in ipairs(familiars) do
+            for _, fam in ipairs(Isaac.FindByType(EntityType.ENTITY_FAMILIAR, variant, -1, false, false)) do
                 local fdata = fam:GetData()
                 if not fdata.TrueCoopIgnore and fdata.TrueCoopPlayerListIndex == data.PlayerListIndex then
                     fam:Remove()
@@ -1557,7 +1557,7 @@ end)
 
 mod:AddCallback(ModCallbacks.MC_PRE_ENTITY_SPAWN, function(_, etype, variant, subtype, position, velocity, spawner, seed)
     if etype == EntityType.ENTITY_PICKUP then
-        local hasStarterDeck, hasBaggy, hasHumble, hasBogo = false, false, false, false
+        local hasStarterDeck, hasBaggy = false, false
         for _, player in ipairs(players) do
             if player:HasCollectible(CollectibleType.COLLECTIBLE_STARTER_DECK) then
                 hasStarterDeck = true
@@ -2201,8 +2201,8 @@ mod:AddCallback(ModCallbacks.MC_POST_UPDATE, function()
 end)
 
 local defaultColor = Color(1, 1, 1, 1, 0, 0, 0)
-local faded = Color(1, 1, 1, 0.5, 0, 0, 0)
-local invisible = Color(1, 1, 1, 0, 0, 0, 0)
+local fadedColor = Color(1, 1, 1, 0.5, 0, 0, 0)
+local invisibleColor = Color(1, 1, 1, 0, 0, 0, 0)
 
 local defaultChargeColor = Color(1, 1, 1, 1, 0, 0, 0)
 local fadedChargeColor = Color(1, 1, 1, 0.5, 0, 0, 0)
@@ -2243,8 +2243,8 @@ local function RenderChargeBar(position, maxCharges, charge, batteryCharge, fade
                 chargeBars.Color = defaultBatteryColor
             end
 
-            local clamp = 27 - (batteryCharge / maxCharges * 27)
-            chargeBars:Render(position, Vector(0, clamp), zeroVector)
+            local clamp2 = 27 - (batteryCharge / maxCharges * 27)
+            chargeBars:Render(position, Vector(0, clamp2), zeroVector)
         end
 
         if faded then
@@ -2403,7 +2403,7 @@ local function RenderPlayerHUD(pind, player, tintColor, renderOutlines, renderMa
                 RenderChargeBar(hudOffset + Config.ChargeBarOffset, activeSprite.Config.MaxCharges, charge, batteryCharge, true)
             end
 
-            activeSprite.Sprite.Color = faded
+            activeSprite.Sprite.Color = fadedColor
             activeSprite.Sprite:Render(hudOffset, zeroVector, zeroVector)
         end
     end
@@ -2480,7 +2480,6 @@ local function RenderPlayerHUD(pind, player, tintColor, renderOutlines, renderMa
     local pillTwo = player:GetPill(1)
     if pillTwo and pillTwo > 0 then
         local hudOffset = Config.PillHUDOffsets[pind] + GetScreenBottomRight()
-        local effect = itemPool:GetPillEffect(pillTwo)
 
         pillsCardsColor:SetFrame("PillsSmall", pillTwo - 1)
         if renderOutlines then
@@ -2626,9 +2625,9 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER, function()
     local shouldRender = not (room:GetType() == RoomType.ROOM_BOSS and room:GetFrameCount() < 1 and not room:IsClear())
 
     for pind, player in ipairs(players) do
-        local data, sprite = player:GetData(), player:GetSprite()
+        local data = player:GetData()
 
-        local setPlayerColor, setHUDColor = "DEFAULT", invisible
+        local setPlayerColor, setHUDColor = "DEFAULT", invisibleColor
 
         if Config.PlayerTintMode == 3 then
             setPlayerColor = Config.PlayerColors[pind]
@@ -3079,13 +3078,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, function(_, pickup, collid
                     if pickup:IsShopItem() then
                         player:AddCoins(-pickup.Price)
 
-                        local restock
-                        for _, p in ipairs(players) do
-                            if p:HasCollectible(CollectibleType.COLLECTIBLE_RESTOCK) or p:GetEffects():HasCollectibleEffect(CollectibleType.COLLECTIBLE_RESTOCK) then
-                                restock = true
-                            end
-                        end
-
+                        -- trinkets are only sold in greed mode
                         pickup:GetData().TrueCoopShouldRestock = true
                     end
 
@@ -3105,22 +3098,22 @@ mod:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, function(_, pickup, collid
         elseif pickup.Variant == PickupVariant.PICKUP_BED then
             if not pickup.Touched then
                 local used
-                for _, player in ipairs(players) do
-                    local maxHP = player:GetMaxHearts()
+                for _, p in ipairs(players) do
+                    local maxHP = p:GetMaxHearts()
                     if maxHP > 0 then
-                        if player:GetHearts() < maxHP then
+                        if p:GetHearts() < maxHP then
                             used = true
-                            player:AddHearts(maxHP)
+                            p:AddHearts(maxHP)
                         end
                     else
                         used = true
-                        player:AddSoulHearts(6)
+                        p:AddSoulHearts(6)
                     end
                 end
 
                 if used then
-                    for _, player in ipairs(players) do
-                        player:AddControlsCooldown(364)
+                    for _, p in ipairs(players) do
+                        p:AddControlsCooldown(364)
                     end
 
                     SleepGiantbook:Play("Idle", true)
@@ -3387,8 +3380,8 @@ mod:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, function(_, player, amount, fla
             return false
         elseif game:GetRoom():GetType() == RoomType.ROOM_SACRIFICE and flag & DamageFlag.DAMAGE_SPIKES == DamageFlag.DAMAGE_SPIKES and player:GetHearts() + player:GetSoulHearts() > amount and Config.GhostDeathMode > 2 then
             local deadPlayers = {}
-            for _, player in ipairs(players) do
-                local pdata = player:GetData()
+            for _, p in ipairs(players) do
+                local pdata = p:GetData()
                 if pdata.TrueCoop.Save.IsGhost and pdata.TrueCoop.Save.GhostInventory then
                     deadPlayers[#deadPlayers + 1] = player
                 end
@@ -3713,8 +3706,8 @@ end)
 mod:AddCallback(ModCallbacks.MC_POST_TEAR_UPDATE, function(_, tear)
     if Config.PVP == 2 then
         if tear.FrameCount <= 1 then
-            local players = Isaac.FindInRadius(tear.Position, 12, EntityPartition.PLAYER)
-            tear:GetData().TrueCoopPlayer = players[1]
+            local nearPlayers = Isaac.FindInRadius(tear.Position, 12, EntityPartition.PLAYER)
+            tear:GetData().TrueCoopPlayer = nearPlayers[1]
         end
 
         if tear.FrameCount > 5 or tear:GetData().TrueCoopPlayer then
@@ -3756,12 +3749,12 @@ mod:AddCallback(ModCallbacks.MC_POST_LASER_UPDATE, function(_, laser)
     end
 end)
 
-local function SplitCommand(splitstr)
-    if seperator == nil then
-        seperator = "%s"
+local function SplitCommand(splitstr, separator)
+    if separator == nil then
+        separator = "%s"
     end
     local t = {}
-    for str in string.gmatch(splitstr, "([^"..seperator.."]+)") do
+    for str in string.gmatch(splitstr, "([^"..separator.."]+)") do
         t[#t + 1] = str
     end
     return t
@@ -3780,7 +3773,7 @@ mod:AddCallback(ModCallbacks.MC_EXECUTE_CMD, function(_, cmd, params)
                         p:AddCollectible(item, 999, true)
                     end
                 elseif split[2] and type(split[2]) == "string" then
-                    local item = Isaac.GetItemIdByName(item)
+                    item = Isaac.GetItemIdByName(item)
                     if item ~= -1 then
                         for i = 1, count do
                             p:AddCollectible(item, 999, true)
@@ -3794,7 +3787,7 @@ mod:AddCallback(ModCallbacks.MC_EXECUTE_CMD, function(_, cmd, params)
                     players[player]:AddCollectible(item, 999, true)
                 end
             elseif players[player] and split[2] and type(split[2]) == "string" then
-                local item = Isaac.GetItemIdByName(item)
+                item = Isaac.GetItemIdByName(item)
                 if item ~= -1 then
                     for i = 1, count do
                         players[player]:AddCollectible(item, 999, true)
@@ -3814,7 +3807,7 @@ mod:AddCallback(ModCallbacks.MC_EXECUTE_CMD, function(_, cmd, params)
                     if split[2] == "*" then
                         RemoveAllItems(p)
                     else
-                        local item = Isaac.GetItemIdByName(item)
+                        item = Isaac.GetItemIdByName(item)
                         if item ~= -1 then
                             for i = 1, count do
                                 p:RemoveCollectible(item)
@@ -3832,7 +3825,7 @@ mod:AddCallback(ModCallbacks.MC_EXECUTE_CMD, function(_, cmd, params)
                 if split[2] == "*" then
                     RemoveAllItems(players[player])
                 else
-                    local item = Isaac.GetItemIdByName(item)
+                    item = Isaac.GetItemIdByName(item)
                     if item ~= -1 then
                         for i = 1, count do
                             players[player]:RemoveCollectible(item)
@@ -3956,20 +3949,6 @@ local menuTextOffset = Vector(0, -86)
 local font = Font()
 font:Load("font/teammeatfont12.fnt")
 local fontHeight = font:GetBaselineHeight() - 1
-
-local function GetScreenCenterPosition()
-    local room = game:GetRoom()
-    local roomCenter = room:GetCenterPos()
-    local centerOffset = roomCenter - room:GetTopLeftPos()
-    local pos = room:GetCenterPos()
-    if centerOffset.X > 260 then
-      pos.X = pos.X - 260
-    end
-    if centerOffset.Y > 140 then
-        pos.Y = pos.Y - 140
-    end
-    return Isaac.WorldToRenderPosition(pos, false), roomCenter, room
-end
 
 local options = {
     {Name = "HUD Offset:", SaveName = "BaseHUDOffset", HasAdjustor = true, Default = Config.BaseHUDOffset},
