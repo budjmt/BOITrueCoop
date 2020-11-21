@@ -1066,7 +1066,7 @@ end
 
 deliriumSprites = nDeliriumSprites
 
-local FamiliarCacheEvaluated = false
+local FamiliarCacheEvaluatedFor = {}
 local ExtraFamiliars = {}
 local ExtraFamiliarsBuffer = {}
 local ExtraExtraFamiliars = {}
@@ -1307,7 +1307,7 @@ end
 
 mod:AddCallback(ModCallbacks.MC_EVALUATE_CACHE, function(_, p, f)
     if f == CacheFlag.CACHE_FAMILIARS then
-        FamiliarCacheEvaluated = true
+        FamiliarCacheEvaluatedFor[#FamiliarCacheEvaluatedFor + 1] = p:GetData().TrueCoop.PlayerListIndex
     end
 end)
 
@@ -1316,10 +1316,25 @@ mod:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, function(_, fam)
 end, FamiliarVariant.BONE_ORBITAL)
 
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, function()
-    if FamiliarCacheEvaluated then
-        ExtraFamiliars = ExtraFamiliarsBuffer
+    if #FamiliarCacheEvaluatedFor > 0 then
+        for variant, pinds in pairs(ExtraFamiliars) do
+            for _, pind in ipairs(FamiliarCacheEvaluatedFor) do
+                pinds[pind] = nil
+            end
+        end
+
+        for variant, pinds in pairs(ExtraFamiliarsBuffer) do
+            if not ExtraFamiliars[variant] then
+                ExtraFamiliars[variant] = pinds
+            else
+                for pind, famData in pairs(pinds) do
+                    ExtraFamiliars[variant][pind] = famData
+                end
+            end
+        end
+
         ExtraFamiliarsBuffer = {}
-        FamiliarCacheEvaluated = false
+        FamiliarCacheEvaluatedFor = {}
     end
 
     local ExpectingPerPlayer = {}
