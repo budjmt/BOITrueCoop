@@ -3086,8 +3086,8 @@ mod:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, function(_, pickup, collid
                         end
 
                         if restock then
-                        pickup:GetData().TrueCoopShouldRestock = true
-                    end
+                            pickup:GetData().TrueCoopShouldRestock = true
+                        end
                     end
 
                     pickup:PlayPickupSound()
