@@ -3078,8 +3078,16 @@ mod:AddCallback(ModCallbacks.MC_PRE_PICKUP_COLLISION, function(_, pickup, collid
                     if pickup:IsShopItem() then
                         player:AddCoins(-pickup.Price)
 
-                        -- trinkets are only sold in greed mode
+                        local restock
+                        for _, p in ipairs(players) do
+                            if p:HasCollectible(CollectibleType.COLLECTIBLE_RESTOCK) or p:GetEffects():HasCollectibleEffect(CollectibleType.COLLECTIBLE_RESTOCK) then
+                                restock = true
+                            end
+                        end
+
+                        if restock then
                         pickup:GetData().TrueCoopShouldRestock = true
+                    end
                     end
 
                     pickup:PlayPickupSound()
