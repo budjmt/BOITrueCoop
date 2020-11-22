@@ -1106,7 +1106,7 @@ local function AddFamiliar(expectedFamiliars, variant, player, count, accountFor
 
     if positions then
         for _, position in ipairs(positions) do
-            expectedFamiliars[variant].Positions[#expectedFamiliars[variant].Positions + 1] = position
+            table.insert(expectedFamiliars[variant].Positions, position)
         end
     end
 
@@ -1153,7 +1153,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_USE_ITEM, function()
             data.TrueCoop.BrownNuggetUses = data.TrueCoop.BrownNuggetUses or 0
             data.TrueCoop.BrownNuggetPositions[#data.TrueCoop.BrownNuggetPositions + 1] = player.Position
             data.TrueCoop.BrownNuggetUses = data.TrueCoop.BrownNuggetUses + 1
-            InfinityTrueCoopInterface.SetExpectedFamiliar("BrownNugget" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.BROWN_NUGGET_POOTER, data.TrueCoop.PlayerListIndex, data.TrueCoop.BrownNuggetUses, false, false, data.TrueCoop.BrownNuggetPositions)
+            InfinityTrueCoopInterface.SetExpectedFamiliar("BrownNugget", FamiliarVariant.BROWN_NUGGET_POOTER, player, data.TrueCoop.BrownNuggetUses, false, false, data.TrueCoop.BrownNuggetPositions)
             return true
         end
     end
@@ -1168,7 +1168,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_USE_ITEM, function()
             data.TrueCoop.SprinklerUses = data.TrueCoop.SprinklerUses or 0
             data.TrueCoop.SprinklerPositions[#data.TrueCoop.SprinklerPositions + 1] = player.Position
             data.TrueCoop.SprinklerUses = data.TrueCoop.SprinklerUses + 1
-            InfinityTrueCoopInterface.SetExpectedFamiliar("Sprinkler" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.SPRINKLER, data.TrueCoop.PlayerListIndex, data.TrueCoop.SprinklerUses, false, false, data.TrueCoop.SprinklerPositions)
+            InfinityTrueCoopInterface.SetExpectedFamiliar("Sprinkler", FamiliarVariant.SPRINKLER, player, data.TrueCoop.SprinklerUses, false, false, data.TrueCoop.SprinklerPositions)
             return true
         end
     end
@@ -1183,7 +1183,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_USE_ITEM, function()
             data.TrueCoop.ScissorUses = data.TrueCoop.ScissorUses or 0
             data.TrueCoop.ScissorPositions[#data.TrueCoop.ScissorPositions + 1] = player.Position
             data.TrueCoop.ScissorUses = data.TrueCoop.ScissorUses + 1
-            InfinityTrueCoopInterface.SetExpectedFamiliar("Scissor" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.SCISSORS, data.TrueCoop.PlayerListIndex, data.TrueCoop.ScissorUses, false, false, data.TrueCoop.ScissorPositions)
+            InfinityTrueCoopInterface.SetExpectedFamiliar("Scissor", FamiliarVariant.SCISSORS, player, data.TrueCoop.ScissorUses, false, false, data.TrueCoop.ScissorPositions)
             return true
         end
     end
@@ -1194,15 +1194,15 @@ mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, function()
         local data = player:GetData()
         data.TrueCoop.BrownNuggetPositions = {}
         data.TrueCoop.BrownNuggetUses = 0
-        InfinityTrueCoopInterface.SetExpectedFamiliar("BrownNugget" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.BROWN_NUGGET_POOTER, data.TrueCoop.PlayerListIndex, data.TrueCoop.BrownNuggetUses, false, false, data.TrueCoop.BrownNuggetPositions)
+        InfinityTrueCoopInterface.SetExpectedFamiliar("BrownNugget", FamiliarVariant.BROWN_NUGGET_POOTER, player, data.TrueCoop.BrownNuggetUses, false, false, data.TrueCoop.BrownNuggetPositions)
 
         data.TrueCoop.SprinklerPositions = {}
         data.TrueCoop.SprinklerUses = 0
-        InfinityTrueCoopInterface.SetExpectedFamiliar("Sprinkler" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.SPRINKLER, data.TrueCoop.PlayerListIndex, data.TrueCoop.SprinklerUses, false, false, data.TrueCoop.SprinklerPositions)
+        InfinityTrueCoopInterface.SetExpectedFamiliar("Sprinkler", FamiliarVariant.SPRINKLER, player, data.TrueCoop.SprinklerUses, false, false, data.TrueCoop.SprinklerPositions)
 
         data.TrueCoop.ScissorPositions = {}
         data.TrueCoop.ScissorUses = 0
-        InfinityTrueCoopInterface.SetExpectedFamiliar("Scissor" .. tostring(data.TrueCoop.PlayerListIndex), FamiliarVariant.SCISSORS, data.TrueCoop.PlayerListIndex, data.TrueCoop.ScissorUses, false, false, data.TrueCoop.ScissorPositions)
+        InfinityTrueCoopInterface.SetExpectedFamiliar("Scissor", FamiliarVariant.SCISSORS, player, data.TrueCoop.ScissorUses, false, false, data.TrueCoop.ScissorPositions)
     end
 end)
 
@@ -3891,17 +3891,13 @@ function InfinityTrueCoopInterface.AddCharacterToWheel(name)
 end
 
 function InfinityTrueCoopInterface.SetExpectedFamiliar(name, variant, player, count, accountForBoxOfFriends, lilDelirium, positions)
-    local pind
     if type(player) == "number" then
-        pind = player
-        player = players[pind]
-    else
-        pind = player:GetData().TrueCoop.PlayerListIndex
+        player = players[player]
     end
 
     local data = player:GetData().TrueCoop
     data.ExtraExtraFamiliars[name] = {}
-    data.ExtraExtraFamiliars[name] = AddFamiliar(data.ExtraExtraFamiliars[name], variant, pind, count, accountForBoxOfFriends, lilDelirium, positions)
+    data.ExtraExtraFamiliars[name] = AddFamiliar(data.ExtraExtraFamiliars[name], variant, player, count, accountForBoxOfFriends, lilDelirium, positions)
 end
 
 function InfinityTrueCoopInterface.SetFamiliarPlayer(familiar, player)
